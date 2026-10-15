@@ -16,3 +16,5 @@ Thumbs.db
 
 # 保留輸出資料夾結構（可選擇忽略實際生成的檔案但保留 .gitkeep）
 !workspace/output/.gitkeep
+
+.vercel
