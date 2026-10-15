@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課前互動測驗：行為經濟學導論</title>
+    <style>
+        :root {
+            --primary-color: #1e3a8a; /* 深藍色 */
+            --secondary-color: #3b82f6;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --correct-bg: #dcfce7;
+            --correct-border: #166534;
+            --correct-text: #166534;
+            --wrong-bg: #fee2e2;
+            --wrong-border: #991b1b;
+            --wrong-text: #991b1b;
+            --hint-bg: #fef3c7;
+            --hint-border: #d97706;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft JhengHei';
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .score-tracker {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .question-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+
+        .question-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .question-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .hint-btn {
+            background: none;
+            border: 1px solid var(--secondary-color);
+            color: var(--secondary-color);
+            padding: 5px 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+        }
+
+        .hint-btn:hover {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .hint-box {
+            display: none;
+            background-color: var(--hint-bg);
+            border-left: 4px solid var(--hint-border);
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.95rem;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .option-btn {
+            background-color: #f9fafb;
+            border: 2px solid #e5e7eb;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+            color: var(--text-main);
+        }
+
+        .option-btn:hover:not(:disabled) {
+            border-color: var(--secondary-color);
+            background-color: #eff6ff;
+        }
+
+        .option-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .option-btn.correct {
+            background-color: var(--correct-bg);
+            border-color: var(--correct-border);
+            color: var(--correct-text);
+            font-weight: bold;
+        }
+
+        .option-btn.wrong {
+            background-color: var(--wrong-bg);
+            border-color: var(--wrong-border);
+            color: var(--wrong-text);
+        }
+
+        .explanation-box {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+        }
+
+        .explanation-box.show {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        .reset-btn {
+            display: block;
+            width: 100%;
+            max-width: 200px;
+            margin: 30px auto;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background-color 0.2s;
+        }
+
+        .reset-btn:hover {
+            background-color: #1e40af;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (min-width: 768px) {
+            .options-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>行為經濟學導論：消費者認知偏差</h1>
+        <p>請根據課前講義內容，回答以下 3 條與香港日常生活相關的情境題。</p>
+        <div class="score-tracker" id="scoreTracker">目前已答對：0 / 3 題</div>
+    </header>
+
+    <!-- Question 1 -->
+    <div class="question-card" id="q1">
+        <div class="question-title">1. 大學生阿明與朋友到旺角一間新開的日式燒肉店晚膳。餐牌第一頁印著「極上和牛海鮮二人前套餐 $1,288」，而第二頁則是「特選豚肉二人前套餐 $488」。阿明原本覺得吃一頓晚飯花 $400 已經很貴，但看到第一頁後，突然覺得 $488 的套餐「十分抵食（划算）」，於是決定點 $488 的套餐。阿明的決策過程最可能受到哪一種認知偏差影響？</div>
+        
+        <button class="hint-btn" onclick="toggleHint('hint1')">💡 顯示思考提示 (Show Hint)</button>
+        <div class="hint-box" id="hint1">
+            <strong>思考提示：</strong>請留意阿明對「$488」這個價格的價值評估，是否受到了他最先看到的另一個極端數字（$1,288）所干擾？
+        </div>
+
+        <div class="options-grid">
+            <button class="option-btn" onclick="checkAnswer('q1', 'A', 'C')">A. 損失規避 (Loss Aversion)</button>
+            <button class="option-btn" onclick="checkAnswer('q1', 'B', 'C')">B. 現狀偏差 (Status Quo Bias)</button>
+            <button class="option-btn" onclick="checkAnswer('q1', 'C', 'C')">C. 錨定效應 (Anchoring Effect)</button>
+            <button class="option-btn" onclick="checkAnswer('q1', 'D', 'C')">D. 預設效應 (Default Effect)</button>
+        </div>
+
+        <div class="explanation-box" id="exp1"></div>
+    </div>
+
+    <!-- Question 2 -->
+    <div class="question-card" id="q2">
+        <div class="question-title">2. 陳太經常使用外賣平台 KeeTa 點餐。某天她點了一份 $65 的海南雞飯，但平台顯示「訂單滿 $80 即可免除 $15 運費」。為了不支付這 $15 的運費，陳太決定額外加購一杯價值 $22 的凍檸茶。從行為經濟學的角度來看，陳太「寧願多花 $22 買飲料，也不願支付 $15 運費」的行為，最能用以下哪個概念來解釋？</div>
+        
+        <button class="hint-btn" onclick="toggleHint('hint2')">💡 顯示思考提示 (Show Hint)</button>
+        <div class="hint-box" id="hint2">
+            <strong>思考提示：</strong>支付運費對陳太來說是一種純粹的「扣錢」，而買飲料則是「獲得商品」。人們對「白白失去金錢」的心理痛苦程度，通常大於獲得同等價值物品的快樂，這屬於哪種心理機制？
+        </div>
+
+        <div class="options-grid">
+            <button class="option-btn" onclick="checkAnswer('q2', 'A', 'A')">A. 損失規避 (Loss Aversion)</button>
+            <button class="option-btn" onclick="checkAnswer('q2', 'B', 'A')">B. 錨定效應 (Anchoring Effect)</button>
+            <button class="option-btn" onclick="checkAnswer('q2', 'C', 'A')">C. 現狀偏差 (Status Quo Bias)</button>
+            <button class="option-btn" onclick="checkAnswer('q2', 'D', 'A')">D. 選擇過載 (Choice Overload)</button>
+        </div>
+
+        <div class="explanation-box" id="exp2"></div>
+    </div>
+
+    <!-- Question 3 -->
+    <div class="question-card" id="q3">
+        <div class="question-title">3. 剛畢業的大學生李生入職新公司，需要填寫強積金（MPF）投資指示。面對數十隻不同風險的基金，李生覺得資訊太複雜，於是沒有作出任何選擇。結果，他的供款被自動撥入積金局設立的「預設投資策略（DIS，俗稱懶人基金）」。李生這種「不作主動選擇、接受系統安排」的行為，體現了哪一種認知偏差？</div>
+        
+        <button class="hint-btn" onclick="toggleHint('hint3')">💡 顯示思考提示 (Show Hint)</button>
+        <div class="hint-box" id="hint3">
+            <strong>思考提示：</strong>當面對複雜且充滿不確定性的決策時，人們往往會選擇「什麼都不做」，維持原狀或接受系統預先設定好的選項。這被稱為什麼效應？
+        </div>
+
+        <div class="options-grid">
+            <button class="option-btn" onclick="checkAnswer('q3', 'A', 'D')">A. 錨定效應 (Anchoring Effect)</button>
+            <button class="option-btn" onclick="checkAnswer('q3', 'B', 'D')">B. 損失規避 (Loss Aversion)</button>
+            <button class="option-btn" onclick="checkAnswer('q3', 'C', 'D')">C. 沉沒成本謬誤 (Sunk Cost Fallacy)</button>
+            <button class="option-btn" onclick="checkAnswer('q3', 'D', 'D')">D. 現狀偏差與預設效應 (Status Quo Bias & Default Effect)</button>
+        </div>
+
+        <div class="explanation-box" id="exp3"></div>
+    </div>
+
+    <button class="reset-btn" onclick="resetQuiz()">🔄 重新作答 (Reset Quiz)</button>
+</div>
+
+<script>
+    let score = 0;
+    let answeredQuestions = { q1: false, q2: false, q3: false };
+
+    const explanations = {
+        q1: {
+            correct: "C",
+            text: "<strong>✅ 答對了！</strong><br><strong>詳解：</strong>這是典型的「錨定效應 (Anchoring Effect)」。餐牌上極高的價格（$1,288）成為了阿明心理上的「錨點」，拉高了他對這頓飯價格的預期。相比之下，$488 的套餐就顯得相對便宜和划算。選項 A（損失規避）涉及對失去事物的恐懼；選項 B 和 D 則涉及維持現狀，均不符合此情境。"
+        },
+        q2: {
+            correct: "A",
+            text: "<strong>✅ 答對了！</strong><br><strong>詳解：</strong>這反映了「損失規避 (Loss Aversion)」。對陳太而言，支付 $15 運費是一種純粹的「損失」，而為了避免這種心理上的痛苦，她寧願花費更多的金錢（$22）去購買原本不需要的飲料以湊夠免運費門檻。選項 B（錨定效應）是指受第一印象數字影響；選項 C（現狀偏差）是指不願改變現狀，均非此題主旨。"
+        },
+        q3: {
+            correct: "D",
+            text: "<strong>✅ 答對了！</strong><br><strong>詳解：</strong>這是「現狀偏差與預設效應 (Status Quo Bias & Default Effect)」。面對複雜的強積金選擇，李生出現了選擇過載，傾向於不採取任何行動（維持現狀），從而直接接受了系統的預設選項（DIS 懶人基金）。選項 A（錨定效應）和 B（損失規避）在此情境中並未發揮主要作用。"
+        }
+    };
+
+    function toggleHint(hintId) {
+        const hintBox = document.getElementById(hintId);
+        if (hintBox.style.display === "none" || hintBox.style.display === "") {
+            hintBox.style.display = "block";
+        } else {
+            hintBox.style.display = "none";
+        }
+    }
+
+    function checkAnswer(qId, selectedOption, correctOption) {
+        if (answeredQuestions[qId]) return; // Prevent multiple answers
+        
+        answeredQuestions[qId] = true;
+        const card = document.getElementById(qId);
+        const buttons = card.querySelectorAll('.option-btn');
+        const expBox = document.getElementById('exp' + qId.replace('q', ''));
+
+        let isCorrect = (selectedOption === correctOption);
+
+        buttons.forEach(btn => {
+            btn.disabled = true;
+            const btnOption = btn.innerText.charAt(0);
+            
+            if (btnOption === correctOption) {
+                btn.classList.add('correct');
+            } else if (btnOption === selectedOption && !isCorrect) {
+                btn.classList.add('wrong');
+            }
+        });
+
+        if (isCorrect) {
+            score++;
+            updateScore();
+            expBox.innerHTML = explanations[qId].text;
+        } else {
+            let wrongText = "<strong>❌ 再想一想！請參考下方解析：</strong><br>";
+            // Replace the correct prefix with wrong prefix in the explanation text
+            let expText = explanations[qId].text.replace("<strong>✅ 答對了！</strong><br>", "");
+            expBox.innerHTML = wrongText + expText;
+        }
+        
+        expBox.classList.add('show');
+    }
+
+    function updateScore() {
+        document.getElementById('scoreTracker').innerText = `目前已答對：${score} / 3 題`;
+    }
+
+    function resetQuiz() {
+        score = 0;
+        answeredQuestions = { q1: false, q2: false, q3: false };
+        updateScore();
+
+        const cards = document.querySelectorAll('.question-card');
+        cards.forEach(card => {
+            const buttons = card.querySelectorAll('.option-btn');
+            buttons.forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('correct', 'wrong');
+            });
+
+            const expBox = card.querySelector('.explanation-box');
+            expBox.classList.remove('show');
+            expBox.innerHTML = '';
+
+            const hintBox = card.querySelector('.hint-box');
+            hintBox.style.display = 'none';
+        });
+    }
+</script>
+
+</body>
+</html>
