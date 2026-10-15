@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>香港大專跨學科 AI 教學助教工作坊 — Gemini Agent Harness (Vercel Cloud)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#1e1b4b'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang HK", sans-serif;
+    }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 頂部導航列 -->
+  <header class="bg-brand-900 text-white shadow-lg border-b border-indigo-800 sticky top-0 z-30">
+    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-lg shadow-inner">
+          🎓
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base md:text-lg font-bold tracking-tight">香港大專院校跨學科 AI 教學工作坊</h1>
+            <span class="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-medium">
+              Vercel Pro Serverless
+            </span>
+          </div>
+          <p class="text-xs text-indigo-200">免安裝、零程式碼 — 專為大學教授設計的可控教學 Agent Harness 實驗室</p>
+        </div>
+      </div>
+
+      <!-- API 通道切換與個人 Key 輸入框 (僅存於瀏覽器 localStorage) -->
+      <div class="flex flex-wrap items-center gap-2 bg-indigo-950/80 px-3 py-2 rounded-xl border border-indigo-700/70">
+        <label for="providerSelect" class="text-xs text-indigo-200 font-medium whitespace-nowrap">連線通道：</label>
+        <select id="providerSelect" onchange="handleProviderChange()"
+          class="bg-indigo-900 text-white text-xs rounded-lg px-2.5 py-1.5 border border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <option value="openrouter">🟢 課堂免費通道 (OpenRouter Gemini)</option>
+          <option value="poe">🔑 個人 Poe API Key / 自訂 Key (香港免 VPN)</option>
+        </select>
+
+        <div id="customKeyWrapper" class="hidden flex items-center gap-1.5">
+          <input id="customApiKey" type="password" oninput="saveCustomKey()"
+            placeholder="貼上您的 Poe 或 OpenRouter Key (僅存本機瀏覽器)"
+            class="w-60 bg-slate-900 text-white text-xs px-2.5 py-1.5 rounded-lg border border-amber-500/60 focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          <span class="text-[11px] text-amber-300 whitespace-nowrap" title="金鑰只儲存在您個人電腦的瀏覽器 localStorage，絕不與他人共用">🔒 本機私密保存</span>
+        </div>
+
+        <button onclick="resetCurrentUseCase()"
+          class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-600 transition flex items-center gap-1"
+          title="將目前案例還原為工作坊預設教材與規範">
+          <span>↺</span> 重置為預設範本
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 大跨學科 Use Cases 切換列 -->
+    <div class="bg-indigo-950/60 border-t border-indigo-800/80">
+      <div class="max-w-[1600px] mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap gap-1.5" id="useCaseTabs">
+          <button onclick="switchUseCase('1')" id="uc-btn-1"
+            class="uc-tab px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition flex items-center gap-1.5">
+            <span>1️⃣</span> 講義轉互動測驗 HTML <span class="hidden sm:inline text-[11px] opacity-80">(全學科翻轉課堂)</span>
+          </button>
+          <button onclick="switchUseCase('2')" id="uc-btn-2"
+            class="uc-tab px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition flex items-center gap-1.5">
+            <span>2️⃣</span> 論文 Rubric 預批改與 APA 檢查 <span class="hidden sm:inline text-[11px] opacity-80">(人文/社科/商管)</span>
+          </button>
+          <button onclick="switchUseCase('3')" id="uc-btn-3"
+            class="uc-tab px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition flex items-center gap-1.5">
+            <span>3️⃣</span> 教學問卷統計與視覺化圖表 <span class="hidden sm:inline text-[11px] opacity-80">(教育/心理/醫護)</span>
+          </button>
+          <button onclick="switchUseCase('4')" id="uc-btn-4"
+            class="uc-tab px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition flex items-center gap-1.5">
+            <span>4️⃣</span> 香港情境教學個案與 100 分評核表 <span class="hidden sm:inline text-[11px] opacity-80">(社工/護理/管理)</span>
+          </button>
+        </div>
+        <div class="text-[11px] text-indigo-300 flex items-center gap-1.5">
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="saveStatusText">已自動保存於您的瀏覽器 (localStorage 獨立隔離)</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主工作區：左側可編輯設定區 + 右側 Agent 執行與即時預覽區 -->
+  <main class="max-w-[1600px] w-full mx-auto px-4 py-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+    <!-- 左側：三欄式可編輯區 (佔 7 欄) -->
+    <section class="lg:col-span-7 flex flex-col gap-3">
+      <!-- 案例說明橫幅 -->
+      <div class="bg-white rounded-xl p-3.5 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="ucBadge" class="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-md">Use Case 1</span>
+            <h2 id="ucTitle" class="text-sm md:text-base font-bold text-slate-900">課前互動測驗生成器 (quiz-builder)</h2>
+          </div>
+          <p id="ucDesc" class="text-xs text-slate-600 mt-0.5">讀取課程講義，自動設計 3 題貼近香港生活情境的四選一互動選擇題（含蘇格拉底思考提示 Hint 與詳解），輸出單一檔案互動網頁。</p>
+        </div>
+      </div>
+
+      <!-- 左側三欄式可編輯面板 (在桌面端並排顯示 3 欄，亦支援放大檢視) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1">
+        <!-- 欄 1：輸入教材 / 作業 / 問卷 (workspace/input/) -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+          <div class="bg-slate-100 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1">📄 1. 輸入教材 / 數據</span>
+              <span id="inputFileLabel" class="text-[11px] font-mono text-indigo-600">lecture_notes.md</span>
+            </div>
+            <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">可直接改字</span>
+          </div>
+          <textarea id="inputContentEditor" oninput="saveUserEdits()"
+            class="w-full flex-1 min-h-[340px] p-3 text-xs font-mono leading-relaxed text-slate-800 focus:outline-none focus:bg-indigo-50/20 resize-y custom-scroll"
+            placeholder="在此輸入課程講義、學生短文或 CSV 問卷數據..."></textarea>
+        </div>
+
+        <!-- 欄 2：全域教學規範 (.agents/AGENTS.md) -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+          <div class="bg-slate-100 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1">🧭 2. 學術與教學規範</span>
+              <span class="text-[11px] font-mono text-indigo-600">.agents/AGENTS.md</span>
+            </div>
+            <span class="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">護欄設定</span>
+          </div>
+          <textarea id="agentsMdEditor" oninput="saveUserEdits()"
+            class="w-full flex-1 min-h-[340px] p-3 text-xs font-mono leading-relaxed text-slate-800 focus:outline-none focus:bg-indigo-50/20 resize-y custom-scroll"
+            placeholder="在此設定全域教學規則（如：繁體中文、中英對照、嚴禁代寫、先用 Python 驗算等）..."></textarea>
+        </div>
+
+        <!-- 欄 3：學科技能步驟 (.agents/skills/<skill>/SKILL.md) -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+          <div class="bg-slate-100 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1">🛠️ 3. 技能步驟與評分表</span>
+              <span id="skillFileLabel" class="text-[11px] font-mono text-indigo-600">quiz-builder/SKILL.md</span>
+            </div>
+            <span class="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">SOP 流程</span>
+          </div>
+          <textarea id="skillMdEditor" oninput="saveUserEdits()"
+            class="w-full flex-1 min-h-[340px] p-3 text-xs font-mono leading-relaxed text-slate-800 focus:outline-none focus:bg-indigo-50/20 resize-y custom-scroll"
+            placeholder="在此設定技能步驟與 Rubric 配分標準..."></textarea>
+        </div>
+      </div>
+
+      <!-- 任務指令與啟動按鈕列 -->
+      <div class="bg-white rounded-xl p-3.5 shadow-sm border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div class="flex-1">
+          <label for="taskPromptEditor" class="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+            給 AI 助教的執行指令 (Task Prompt)
+          </label>
+          <input id="taskPromptEditor" type="text" oninput="saveUserEdits()"
+            class="w-full text-xs md:text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800" />
+        </div>
+        <button id="runAgentBtn" onclick="runAgentHarness()"
+          class="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer">
+          <span id="runBtnIcon">🚀</span>
+          <span id="runBtnText">啟動 Gemini Agent Harness</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 右側：執行軌跡與即時預覽區 (佔 5 欄) -->
+    <section class="lg:col-span-5 flex flex-col gap-3">
+
+      <!-- Agent 工具呼叫實證軌跡 (Tool Calling Logs) -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <div class="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-sm">🔬</span>
+            <h3 class="text-xs md:text-sm font-bold">Agent 實證工具呼叫軌跡 (Tool-Verified Loop)</h3>
+          </div>
+          <span id="sandboxBadge" class="text-[11px] font-mono text-indigo-300 bg-slate-800 px-2 py-0.5 rounded">
+            等待啟動 (/tmp/&lt;uuid&gt;)
+          </span>
+        </div>
+
+        <!-- Loading 動畫區 -->
+        <div id="loadingBanner" class="hidden bg-indigo-50 border-b border-indigo-100 p-4 flex items-center gap-3">
+          <div class="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0"></div>
+          <div class="text-xs text-indigo-900">
+            <p class="font-bold">正在雲端隔離沙盒執行多回合 Agent Loop（約需 15–45 秒）...</p>
+            <p class="text-indigo-700 mt-0.5">AI 正在自動讀取檔案、呼叫 Python 3.12 標準庫驗算數據，並將結果寫入沙盒輸出目錄。</p>
+          </div>
+        </div>
+
+        <!-- 工具步驟清單 -->
+        <div id="toolLogsContainer" class="p-3 max-h-60 overflow-y-auto custom-scroll space-y-2 text-xs bg-slate-50">
+          <div class="text-slate-400 text-center py-6">
+            點擊左側「🚀 啟動 Gemini Agent Harness」後，此處將逐步展示：<br/>
+            <span class="text-slate-500 font-mono mt-1 inline-block">read_workspace_file → run_python_script → write_workspace_file</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 產出檔案切換、一鍵下載與即時互動預覽 (Iframe / Markdown / CSV) -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden min-h-[420px]">
+        <div class="bg-slate-100 px-3.5 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 flex-wrap" id="outputFileTabs">
+            <span class="text-xs font-bold text-slate-700">📂 產出檔案與即時預覽：</span>
+            <span class="text-xs text-slate-400">尚無產出檔案</span>
+          </div>
+          <div id="downloadButtonsBar" class="flex items-center gap-1.5 flex-wrap"></div>
+        </div>
+
+        <!-- AI 總結回覆摘要 (可折疊) -->
+        <details id="finalReplyBox" class="hidden border-b border-slate-200 bg-amber-50/60 px-3.5 py-2 text-xs">
+          <summary class="font-bold text-amber-900 cursor-pointer select-none">💬 檢視 AI 助教完成匯報摘要</summary>
+          <pre id="finalReplyContent" class="mt-2 whitespace-pre-wrap font-sans text-slate-700 leading-relaxed max-h-40 overflow-y-auto custom-scroll"></pre>
+        </details>
+
+        <!-- 預覽主視窗 -->
+        <div id="previewViewport" class="flex-1 bg-slate-50 relative flex flex-col">
+          <div id="emptyPreviewHint" class="m-auto text-center p-6 text-slate-400 text-xs">
+            <div class="text-3xl mb-2">🖥️</div>
+            <p class="font-semibold text-slate-600">即時互動預覽區 (Live Sandbox Preview)</p>
+            <p class="mt-1">若產出 <code class="bg-slate-200 text-slate-700 px-1 rounded">.html</code>（如課前互動測驗或問卷視覺化圖表），將直接於此處內嵌 <code class="bg-slate-200 text-slate-700 px-1 rounded">&lt;iframe&gt;</code> 即時操作體驗！</p>
+          </div>
+          <iframe id="htmlPreviewFrame" class="hidden w-full flex-1 min-h-[400px] border-0 bg-white" sandbox="allow-scripts allow-same-origin"></iframe>
+          <pre id="textPreviewPane" class="hidden w-full flex-1 min-h-[400px] p-4 text-xs font-mono leading-relaxed text-slate-800 overflow-auto custom-scroll whitespace-pre-wrap bg-white"></pre>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    const DEFAULT_TEMPLATES = {"1": {"badge": "Use Case 1 · 全學科通用", "title": "講義轉互動測驗 HTML (quiz-builder)", "desc": "讀取課程講義 (lecture_notes.md)，自動設計 3 題貼近香港生活情境的四選一互動選擇題（含蘇格拉底思考提示 Hint 與詳解），輸出單一檔案互動網頁 pre_class_quiz.html。", "input_filename": "lecture_notes.md", "skill_label": "quiz-builder/SKILL.md", "input_content": "# GECO2104 行為經濟學導論：消費者認知偏差與日常決策 (Cognitive Biases in Consumer Decision-Making)\n\n## 1. 課程核心概念：從「理性經濟人」到「有限理性」\n傳統新古典經濟學假設人類是完全理性的「經濟人」（*Homo Economicus*），在決策時會精確計算所有選項的邊際成本與邊際效益。然而，諾貝爾經濟學獎得主 Daniel Kahneman、Amos Tversky 與 Richard Thaler 的研究指出，人類在真實世界受限於時間、注意力與資訊處理能力，展現出**有限理性（Bounded Rationality）**，並常依賴直覺捷思（Heuristics），進而產生系統性的**認知偏差（Cognitive Biases）**。\n\n---\n\n## 2. 三大經典認知偏差與香港生活實例\n\n### 2.1 錨定效應 (Anchoring Effect)\n- **理論定義**：人們在進行價值評估或數量估計時，會過度依賴最先接觸到的第一項資訊（即「錨點」 Anchor），隨後即使作出調整，調整幅度往往不足（Insufficient Adjustment）。\n- **香港生活例子（大型超市與百貨促銷標價）**：\n  - 在百佳（PARKnSHOP）、惠康（Wellcome）或一田百貨（YATA）購物時，常見價錢牌標示「原價 $128，特價 $68（買二送一）」。\n  - 即使消費者原本並不知道該款日本進口零食或紅酒的真實市場價值，「原價 $128」已成為心理錨點，令消費者覺得 $68 是「極大優惠」，進而購買超出實際需要的數量。\n  - 另一個常見例子是香港茶餐廳或餐廳午市套餐：餐牌首頁放置一道 $288 的「主廚招牌特選套餐」，能令旁邊 $118 的常規商務午餐顯得相當划算。\n\n### 2.2 損失規避 (Loss Aversion)\n- **理論定義**：根據展望理論（Prospect Theory），人們面對同等金額的「損失」時所感受到的心理痛苦，大約是獲得同等金額「收益」所帶來快樂的 **2 至 2.5 倍**。換言之，人們對「失去已擁有事物」的恐懼遠大於對「獲得新事物」的渴望。\n- **香港生活例子（塑膠購物袋徵費與八達通按金 / 咖啡店印花卡）**：\n  - **超市膠袋徵費（$1 徵費 vs. 自備環保袋減 $1）**：香港實施每個塑膠購物袋最少收費 $1 後，市民自備購物袋的比例顯著上升。行為經濟學研究顯示，將政策框架（Framing）設定為「索取膠袋需額外支付 $1（懲罰/損失）」，遠比「自備環保袋可獲 $1 折扣（獎勵/收益）」更能改變香港市民的消費習慣。\n  - **外賣平台免運費門檻**：當港人使用 Foodpanda 或 KeeTa 點餐時，為了避免支付 $15–$20 的運費（「避免損失」），往往寧願額外加購價值 $40 的小食以湊夠免運費門檻。\n\n### 2.3 現狀偏差與預設效應 (Status Quo Bias & Default Effect)\n- **理論定義**：當面對複雜、充滿不確定性或涉及長遠規劃的選擇時，人們傾向維持現狀（Status Quo），不願主動做出改變，因此極容易直接接受系統預先設定的選項（Default Option）。\n- **香港生活例子（強積金 MPF「預設投資策略」DIS 與訂閱服務自動續期）**：\n  - **香港強積金（MPF）預設投資策略（Default Investment Strategy, DIS，俗稱「懶人基金」）**：許多香港打工仔面對數十隻強積金基金成分、管理費率與環球股市波動時，會出現「選擇過載」（Choice Overload）及拖延行為（Procrastination），長年將供款留在回報極低的保守基金或從不檢視組合。積金局引入 DIS 作為預設選項後，凡沒有主動給予投資指示的計劃成員，其供款會自動按年齡自動降低風險（隨年齡增長逐步減持環球股票、增持債券），成功利用「預設效應」改善退休保障配置。\n  - **串流平台與健身會籍試用**：香港常見的「首月 $0 免費試用，其後每月自動扣款 $98」條款，正是利用消費者懶於取消的現狀偏差來提高留存率。\n\n---\n\n## 3. 課堂討論與延伸思考：助推理論 (Nudge Theory)\n公共政策制定者與企業可透過設計**選擇架構（Choice Architecture）**，在不禁止任何選項、也不顯著改變經濟誘因的前提下，溫和地「助推」（Nudge）市民做出更有利於自身健康、財務或社會福祉的決定。同時，我們亦需警惕商界濫用認知偏差設計「暗黑模式」（Dark Patterns，又稱「淤泥」Sludge）誘導非理性消費。\n", "agents_md": "# 香港大專院校跨學科 AI 教學助教全域規範 (Global Pedagogical Agent Rules)\n\n## 1. 角色定位 (Role Definition)\n你是專為**香港大專院校跨學科教授、講師及教學人員**設計的「AI 學術與教學助教 (Academic & Pedagogical AI Teaching Assistant)」。你的服務對象涵蓋人文社科、商管、教育心理、醫護及社工等不同學科背景的教師，協助他們高效率、高信度地完成備課、形成性評量（Formative Assessment）、學生作業回饋、課程檢討與情境案例設計。\n\n---\n\n## 2. 語言與術語規範 (Language & Terminology Standards)\n- **主要語言**：所有教學分析、學生評語、檢討報告與導師指引，一律使用**繁體中文（書面語，貼合香港高等教育語境）**撰寫。\n- **學術專有名詞中英對照**：首次出現或關鍵的學術概念、統計指標、評估準則與教學法術語，必須保留**中英對照**（例如：錨定效應 Anchoring Effect、形成性評量 Formative Assessment、標準差 Standard Deviation、蘇格拉底式提問 Socratic Questioning）。\n- **在地化語境**：舉例或設計情境時，優先採用香港大專學生及市民熟悉的制度與生活場景（如：強積金 MPF、八達通、公屋/居屋社區、醫管局急症室分流、香港大專通識課程等）。\n\n---\n\n## 3. 工具實證守則 (Tool-Verified Evidence Mandate)\n> **核心鐵律：零幻覺、先驗算、後下筆 (Calculate First, Write Second)**\n\n凡涉及以下任何量化或格式檢驗任務，**嚴禁憑語言模型直覺「心算」或猜測**，必須先呼叫 `run_python_script` 工具執行 Python 程式碼取得精確輸出後，方可將結果寫入報告或回饋中：\n1. **字數與句子統計**：計算英文/中文短文字數（Word Count）、句子數（Sentence Count）及平均句長。\n2. **APA 引用格式提取與檢核**：使用正規表達式（Regex）提取文內所有 `(Author, YYYY)` 或 `(Author & Author, YYYY)` 格式之 APA 第 7 版引用。\n3. **評分表（Rubric）配分與加總驗算**：核算各評分維度權重總和是否嚴格等於 100%，以及計算學生的加權總分與等第（Grade）。\n4. **問卷與量化數據統計**：讀取 CSV 檔案計算平均值（Mean）、標準差（SD）、相關係數（Correlation）及繪製統計圖表。\n\n---\n\n## 4. 教學法護欄 (Pedagogical Guardrails)\n- **蘇格拉底式鷹架引導 (Socratic Scaffolding)**：\n  - 批改學生作業或設計案例討論時，你的目標是促進學生的批判性思考（Critical Thinking）與自主修正能力。\n  - 針對學生的論點漏洞或寫作弱點，必須提供**具體改進提示（Actionable Hints）**與**引導式提問（Guiding Questions）**，引領學生思考如何補強論據。\n- **嚴禁代寫守則 (No Ghostwriting Policy)**：\n  - **絕不直接代寫整篇學生作業或直接給出完整標準範文**。你可以提供最多 1–2 句的「句型改寫示範（Sentence-level Modeling）」，但必須保留空間讓學生自行重構段落。\n- **正向且具建設性的語氣 (Constructive Tone)**：\n  - 採用「三明治回饋法（Sandwich Feedback Method）」：先肯定作品的具體優點，再指出需改進之處並附上思考提示，最後給予鼓勵與下一步行動建議。\n\n---\n\n## 5. 檔案輸出守則 (File Output & Sandbox Rules)\n- **讀取路徑**：所有原始教學素材、學生作業與問卷數據均存放於 `workspace/input/` 目錄下，請使用 `read_workspace_file` 或在 `run_python_script` 中讀取。\n- **寫入路徑**：所有生成的互動教材（`.html`）、評語報告（`.md`）、成績表（`.csv`）或數據視覺化圖表（`.png`），**必須且只能寫入 `workspace/output/` 目錄下**，絕不可覆寫 `workspace/input/` 內的原始檔案。\n", "skill_md": "---\nname: quiz-builder\ndescription: 讀取課程講義 (workspace/input/lecture_notes.md)，自動設計 3 題貼近香港生活情境的四選一互動選擇題（含蘇格拉底思考提示 Hint 與詳解），並輸出單一檔案互動網頁 workspace/output/pre_class_quiz.html。適用於全學科課前預習與翻轉課堂。\n---\n\n# 課前互動測驗生成器 (Interactive Pre-Class Quiz Builder)\n\n## 適用對象與教學場景\n- **適用學科**：全學科通用（通識教育、商管、社科、理工及醫護導論課）。\n- **教學目標**：將靜態的課程講義轉化為學生可在手機或電腦直接作答的「單一檔案互動預習網頁」，透過蘇格拉底式提示（Hint）降低挫折感，並於點擊選項時提供即時回饋（Immediate Formative Feedback）。\n\n---\n\n## 執行步驟 (Step-by-Step Workflow)\n\n### 步驟 1：讀取課程講義\n1. 呼叫 `read_workspace_file` 讀取 `workspace/input/lecture_notes.md`。\n2. 擷取講義中的核心理論概念（例如：錨定效應 Anchoring Effect、損失規避 Loss Aversion、現狀偏差與預設效應 Status Quo Bias & Default Effect）及香港在地實例。\n\n### 步驟 2：設計 3 題高層次香港情境四選一選擇題 (MCQs)\n請根據布魯姆認知分類（Bloom's Taxonomy）的「應用（Application）」與「分析（Analysis）」層次，設計 **3 題四選一（A/B/C/D）選擇題**：\n- **題目要求**：\n  - 每題必須設定一個**貼近香港大學生或市民日常生活的真實決策情境**（例如：強積金 MPF 預設投資策略、超市原價/特價標示、外賣平台湊免運費、膠袋徵費、健身室免費試用自動續約等）。\n  - 題幹與選項使用**繁體中文**，關鍵學術專有名詞保留**中英對照**。\n  - 每題包含 4 個選項（A、B、C、D），其中僅有 1 個最佳答案，其餘 3 個誘答項（Distractors）需具備合理的迷思概念診斷價值。\n- **支架與回饋要求**：\n  - **思考提示 (Socratic Hint)**：每題提供一個可點擊展開的「💡 思考提示 (Hint)」，在不直接透露答案的前提下，引導學生回憶關鍵判斷準則。\n  - **即時詳解 (Detailed Explanation)**：學生點擊任一選項後，立即顯示該題的完整解析（說明為何正確選項成立，以及常見錯誤選項的盲點）。\n\n### 步驟 3：生成單一檔案互動網頁 (`workspace/output/pre_class_quiz.html`)\n呼叫 `write_workspace_file` 將完整的 HTML5 程式碼寫入 `workspace/output/pre_class_quiz.html`。網頁必須為**零外部依賴的單一檔案（Self-contained Single-File HTML）**，內嵌完整 CSS 與 JavaScript，並符合以下規格：\n1. **視覺設計 (Modern Academic UI)**：\n   - 採用清晰、專業的大學教學介面設計（深藍/靛藍主色調、柔和灰白背景、卡片式題目區塊、圓角與陰影、支援手機與桌面響應式排版 Responsive Design）。\n   - 頂部顯示課程標題、測驗說明與即時得分進度列（Score Tracker，例如：`目前已答對：X / 3 題`）。\n2. **互動功能 (Interactive JavaScript)**：\n   - 每道題目設有「💡 顯示思考提示 (Show Hint)」按鈕，點擊可切換顯示/隱藏提示框。\n   - 學生點擊任一選項按鈕（A/B/C/D）後：\n     - 若答對：選項標示為綠色（`#dcfce7` 背景、`#166534` 邊框与文字），顯示「✅ 答對了！」，並展開完整詳解。\n     - 若答錯：所選項目標示為紅色（`#fee2e2`），同時標示出正確選項並顯示「❌ 再想一想！請參考下方解析：」與完整詳解。\n   - 設有「🔄 重新作答 (Reset Quiz)」按鈕，方便課堂演示與學生反覆練習。\n\n### 步驟 4：向教授匯報完成結果\n完成檔案寫入後，以繁體中文向教授簡要摘要所設計的 3 道題目主題、對應的認知偏差概念，以及如何在瀏覽器開啟 `workspace/output/pre_class_quiz.html` 進行預覽。\n", "task_prompt": "請讀取 input/lecture_notes.md，按照 quiz-builder 技能步驟設計 3 題香港生活情境四選一互動選擇題，並呼叫 write_workspace_file 輸出完整的單一檔案互動網頁 output/pre_class_quiz.html。"}, "2": {"badge": "Use Case 2 · 人文 / 社科 / 商管", "title": "論文 Rubric 預批改與 APA 檢查 (essay-grader)", "desc": "先呼叫 Python 精確計算學生英文短文字數、句子數並以 Regex 提取所有 APA 引用，再依評分標準產出蘇格拉底式引導評語 essay_feedback.md 與成績表 grading_sheet.csv。", "input_filename": "student_essay.txt", "skill_label": "essay-grader/SKILL.md", "input_content": "Social media platforms such as Instagram and Threads have become deeply embedded in the daily routines of university students in Hong Kong. While these digital networks offer instant connectivity and peer support, growing empirical evidence suggests that excessive screen time significantly heightens anxiety and depressive symptoms among local youth (Smith, 2023). In Hong Kong's highly competitive academic environment, constant exposure to curated lifestyles intensifies upward social comparison and Fear of Missing Out (FOMO), which gradually erodes students' self-esteem. Furthermore, late-night scrolling disrupts circadian rhythms and reduces sleep quality, directly impairing daytime cognitive performance in lectures (Chan & Lee, 2024). However, banning social media entirely is neither realistic nor effective for digital natives. Instead, universities in Hong Kong should integrate digital literacy workshops and mindfulness-based interventions into general education curricula so students can cultivate healthier, more intentional online habits.\n", "agents_md": "# 香港大專院校跨學科 AI 教學助教全域規範 (Global Pedagogical Agent Rules)\n\n## 1. 角色定位 (Role Definition)\n你是專為**香港大專院校跨學科教授、講師及教學人員**設計的「AI 學術與教學助教 (Academic & Pedagogical AI Teaching Assistant)」。你的服務對象涵蓋人文社科、商管、教育心理、醫護及社工等不同學科背景的教師，協助他們高效率、高信度地完成備課、形成性評量（Formative Assessment）、學生作業回饋、課程檢討與情境案例設計。\n\n---\n\n## 2. 語言與術語規範 (Language & Terminology Standards)\n- **主要語言**：所有教學分析、學生評語、檢討報告與導師指引，一律使用**繁體中文（書面語，貼合香港高等教育語境）**撰寫。\n- **學術專有名詞中英對照**：首次出現或關鍵的學術概念、統計指標、評估準則與教學法術語，必須保留**中英對照**（例如：錨定效應 Anchoring Effect、形成性評量 Formative Assessment、標準差 Standard Deviation、蘇格拉底式提問 Socratic Questioning）。\n- **在地化語境**：舉例或設計情境時，優先採用香港大專學生及市民熟悉的制度與生活場景（如：強積金 MPF、八達通、公屋/居屋社區、醫管局急症室分流、香港大專通識課程等）。\n\n---\n\n## 3. 工具實證守則 (Tool-Verified Evidence Mandate)\n> **核心鐵律：零幻覺、先驗算、後下筆 (Calculate First, Write Second)**\n\n凡涉及以下任何量化或格式檢驗任務，**嚴禁憑語言模型直覺「心算」或猜測**，必須先呼叫 `run_python_script` 工具執行 Python 程式碼取得精確輸出後，方可將結果寫入報告或回饋中：\n1. **字數與句子統計**：計算英文/中文短文字數（Word Count）、句子數（Sentence Count）及平均句長。\n2. **APA 引用格式提取與檢核**：使用正規表達式（Regex）提取文內所有 `(Author, YYYY)` 或 `(Author & Author, YYYY)` 格式之 APA 第 7 版引用。\n3. **評分表（Rubric）配分與加總驗算**：核算各評分維度權重總和是否嚴格等於 100%，以及計算學生的加權總分與等第（Grade）。\n4. **問卷與量化數據統計**：讀取 CSV 檔案計算平均值（Mean）、標準差（SD）、相關係數（Correlation）及繪製統計圖表。\n\n---\n\n## 4. 教學法護欄 (Pedagogical Guardrails)\n- **蘇格拉底式鷹架引導 (Socratic Scaffolding)**：\n  - 批改學生作業或設計案例討論時，你的目標是促進學生的批判性思考（Critical Thinking）與自主修正能力。\n  - 針對學生的論點漏洞或寫作弱點，必須提供**具體改進提示（Actionable Hints）**與**引導式提問（Guiding Questions）**，引領學生思考如何補強論據。\n- **嚴禁代寫守則 (No Ghostwriting Policy)**：\n  - **絕不直接代寫整篇學生作業或直接給出完整標準範文**。你可以提供最多 1–2 句的「句型改寫示範（Sentence-level Modeling）」，但必須保留空間讓學生自行重構段落。\n- **正向且具建設性的語氣 (Constructive Tone)**：\n  - 採用「三明治回饋法（Sandwich Feedback Method）」：先肯定作品的具體優點，再指出需改進之處並附上思考提示，最後給予鼓勵與下一步行動建議。\n\n---\n\n## 5. 檔案輸出守則 (File Output & Sandbox Rules)\n- **讀取路徑**：所有原始教學素材、學生作業與問卷數據均存放於 `workspace/input/` 目錄下，請使用 `read_workspace_file` 或在 `run_python_script` 中讀取。\n- **寫入路徑**：所有生成的互動教材（`.html`）、評語報告（`.md`）、成績表（`.csv`）或數據視覺化圖表（`.png`），**必須且只能寫入 `workspace/output/` 目錄下**，絕不可覆寫 `workspace/input/` 內的原始檔案。\n", "skill_md": "---\nname: essay-grader\ndescription: 讀取學生英文短文 (workspace/input/student_essay.txt)，先以 Python 精確計算字數、句子數並以 Regex 提取所有 APA 引用，再依評分標準 (Rubric) 產出蘇格拉底式引導評語 workspace/output/essay_feedback.md 與成績表 workspace/output/grading_sheet.csv。適用於人文、社科與商管學科。\n---\n\n# 學生短文實證批改與蘇格拉底回饋技能 (Evidence-Based Essay Grader)\n\n## 適用對象與教學場景\n- **適用學科**：人文學科、社會科學、商管學院、語言中心及大專通識英文寫作課。\n- **教學目標**：結合「Python 客觀數據實證檢核（字數、句數、APA 引用格式）」與「生成式 AI 質性評量」，杜絕大型語言模型常見的算錯字數問題，並提供符合蘇格拉底教學法（Socratic Scaffolding）的啟發式寫作回饋。\n\n---\n\n## 執行步驟 (Step-by-Step Workflow)\n\n### 步驟 1：讀取學生短文\n1. 呼叫 `read_workspace_file` 讀取 `workspace/input/student_essay.txt` 的完整內容。\n\n### 步驟 2：使用 Python 進行客觀文本數據與 APA 引用檢核（強制步驟）\n**嚴禁憑感覺心算字數或人工目視數引用！** 必須呼叫 `run_python_script` 執行一段 Python 腳本，對 `workspace/input/student_essay.txt` 進行以下精確分析並印出 JSON 或結構化結果：\n1. **總字數 (Total Word Count)**：以空白分詞統計精確字數（並檢查是否符合約 150 字的作業要求，例如 130–170 字區間）。\n2. **句子總數 (Sentence Count)** 與 **平均句長 (Average Words per Sentence)**。\n3. **APA 第 7 版文內引用提取 (In-text Citations via Regex)**：\n   - 使用正規表達式（例如 `r'\\([A-Za-z\\s&.,]+,\\s*\\d{4}[a-z]?\\)'`）提取文中所有 `(Author, YYYY)` 或 `(Author & Author, YYYY)` 格式的引用（例如 `(Smith, 2023)`、`(Chan & Lee, 2024)`），並統計引用次數。\n\n### 步驟 3：依評分標準 (Rubric) 進行分析與給分\n根據步驟 1 的文本內容與步驟 2 的 Python 實證數據，按照以下三大維度進行評分（滿分 100 分，並可在 Python 內一併驗算加權總分）：\n1. **論點結構與批判性思考 (Argument Structure & Critical Thinking) — 佔 40%（滿分 40 分）**\n   - 評估主題句（Topic Sentence）、正反論證平衡、因果推論邏輯及結論建議的可行性。\n2. **實證支持與 APA 引用規範 (Empirical Evidence & APA 7th Citation) — 佔 30%（滿分 30 分）**\n   - 根據 Python 提取出的引用清單，評估文內引用格式是否正確、引用是否有效支撐論點、以及是否缺乏具體數據或文獻書目（Reference List）呼應。\n3. **學術表達與語法準確度 (Academic Expression & Cohesion) — 佔 30%（滿分 30 分）**\n   - 評估學術詞彙運用（Academic Register）、段落轉折詞（Transitions）、句型多樣性及字數控制。\n\n### 步驟 4：輸出詳細評語與成績表\n請透過 `write_workspace_file`（或由 `run_python_script` 輔助）生成以下兩個檔案：\n\n1. **詳細學生回饋報告 `workspace/output/essay_feedback.md`**：\n   - 使用**繁體中文**撰寫，關鍵學術與寫作術語保留**中英對照**。\n   - 包含：\n     - **📊 客觀文本檢核摘要表**（列出 Python 實測之總字數、句子數、平均句長、提取出的 APA 引用清單）。\n     - **🏆 各維度評分明細表**（列出三大維度得分、權重、加權總分與等第，如 `A-` / `B+`）。\n     - **🌟 寫作亮點肯定 (Strengths)**：具體指出文中寫得好的論點或詞彙。\n     - **🧭 蘇格拉底式改進引導 (Socratic Scaffolding & Actionable Hints)**：針對論點深度、實證細節與結尾建議，提出 2–3 個啟發式問題與具體修改提示（**嚴禁直接代寫整篇範文**，僅可提供 1–2 句句型升級示範）。\n\n2. **結構化成績表 `workspace/output/grading_sheet.csv`**：\n   - 包含欄位：`Essay_File,Word_Count,Sentence_Count,APA_Citations_Found,Argument_Score_40,Evidence_APA_Score_30,Expression_Score_30,Total_Score_100,Letter_Grade,Key_Recommendation`\n   - 寫入該篇短文的精確統計與評分紀錄，方便教授直接匯入 Moodle / Canvas / Excel。\n", "task_prompt": "請先讀取 input/student_essay.txt 並務必呼叫 run_python_script 精確計算字數、句數與提取 APA 第 7 版引用，再呼叫 write_workspace_file 生成 output/essay_feedback.md 與 output/grading_sheet.csv。"}, "3": {"badge": "Use Case 3 · 教育 / 心理 / 醫護 / 社工", "title": "教學問卷統計與視覺化圖表 (survey-analyst)", "desc": "先用 Python 標準庫 (csv, statistics) 精確計算期末教學評估問卷各指標平均值、標準差與相關係數，再生成內嵌 Chart.js 的互動視覺化報告 eval_report.html 與檢討報告 department_summary.md。", "input_filename": "course_eval.csv", "skill_label": "survey-analyst/SKILL.md", "input_content": "Student_ID,Clarity_Score,Engagement_Score,Feedback_Helpfulness,Overall_Satisfaction,Study_Hours_Per_Week\nS001,4.5,4.2,3.8,4.3,6.5\nS002,4.8,4.6,4.0,4.6,8.0\nS003,3.9,3.5,3.2,3.6,4.0\nS004,4.2,4.0,3.5,4.0,5.5\nS005,4.7,4.5,4.1,4.5,7.5\nS006,3.6,3.2,2.9,3.4,3.5\nS007,4.4,4.1,3.7,4.2,6.0\nS008,4.9,4.7,4.3,4.8,9.0\nS009,4.0,3.8,3.4,3.9,5.0\nS010,4.6,4.3,3.9,4.4,7.0\n", "agents_md": "# 香港大專院校跨學科 AI 教學助教全域規範 (Global Pedagogical Agent Rules)\n\n## 1. 角色定位 (Role Definition)\n你是專為**香港大專院校跨學科教授、講師及教學人員**設計的「AI 學術與教學助教 (Academic & Pedagogical AI Teaching Assistant)」。你的服務對象涵蓋人文社科、商管、教育心理、醫護及社工等不同學科背景的教師，協助他們高效率、高信度地完成備課、形成性評量（Formative Assessment）、學生作業回饋、課程檢討與情境案例設計。\n\n---\n\n## 2. 語言與術語規範 (Language & Terminology Standards)\n- **主要語言**：所有教學分析、學生評語、檢討報告與導師指引，一律使用**繁體中文（書面語，貼合香港高等教育語境）**撰寫。\n- **學術專有名詞中英對照**：首次出現或關鍵的學術概念、統計指標、評估準則與教學法術語，必須保留**中英對照**（例如：錨定效應 Anchoring Effect、形成性評量 Formative Assessment、標準差 Standard Deviation、蘇格拉底式提問 Socratic Questioning）。\n- **在地化語境**：舉例或設計情境時，優先採用香港大專學生及市民熟悉的制度與生活場景（如：強積金 MPF、八達通、公屋/居屋社區、醫管局急症室分流、香港大專通識課程等）。\n\n---\n\n## 3. 工具實證守則 (Tool-Verified Evidence Mandate)\n> **核心鐵律：零幻覺、先驗算、後下筆 (Calculate First, Write Second)**\n\n凡涉及以下任何量化或格式檢驗任務，**嚴禁憑語言模型直覺「心算」或猜測**，必須先呼叫 `run_python_script` 工具執行 Python 程式碼取得精確輸出後，方可將結果寫入報告或回饋中：\n1. **字數與句子統計**：計算英文/中文短文字數（Word Count）、句子數（Sentence Count）及平均句長。\n2. **APA 引用格式提取與檢核**：使用正規表達式（Regex）提取文內所有 `(Author, YYYY)` 或 `(Author & Author, YYYY)` 格式之 APA 第 7 版引用。\n3. **評分表（Rubric）配分與加總驗算**：核算各評分維度權重總和是否嚴格等於 100%，以及計算學生的加權總分與等第（Grade）。\n4. **問卷與量化數據統計**：讀取 CSV 檔案計算平均值（Mean）、標準差（SD）、相關係數（Correlation）及繪製統計圖表。\n\n---\n\n## 4. 教學法護欄 (Pedagogical Guardrails)\n- **蘇格拉底式鷹架引導 (Socratic Scaffolding)**：\n  - 批改學生作業或設計案例討論時，你的目標是促進學生的批判性思考（Critical Thinking）與自主修正能力。\n  - 針對學生的論點漏洞或寫作弱點，必須提供**具體改進提示（Actionable Hints）**與**引導式提問（Guiding Questions）**，引領學生思考如何補強論據。\n- **嚴禁代寫守則 (No Ghostwriting Policy)**：\n  - **絕不直接代寫整篇學生作業或直接給出完整標準範文**。你可以提供最多 1–2 句的「句型改寫示範（Sentence-level Modeling）」，但必須保留空間讓學生自行重構段落。\n- **正向且具建設性的語氣 (Constructive Tone)**：\n  - 採用「三明治回饋法（Sandwich Feedback Method）」：先肯定作品的具體優點，再指出需改進之處並附上思考提示，最後給予鼓勵與下一步行動建議。\n\n---\n\n## 5. 檔案輸出守則 (File Output & Sandbox Rules)\n- **讀取路徑**：所有原始教學素材、學生作業與問卷數據均存放於 `workspace/input/` 目錄下，請使用 `read_workspace_file` 或在 `run_python_script` 中讀取。\n- **寫入路徑**：所有生成的互動教材（`.html`）、評語報告（`.md`）、成績表（`.csv`）或數據視覺化圖表（`.png`），**必須且只能寫入 `workspace/output/` 目錄下**，絕不可覆寫 `workspace/input/` 內的原始檔案。\n", "skill_md": "---\nname: survey-analyst\ndescription: 使用 Python 標準庫 (csv, statistics) 讀取期末教學評估問卷 (course_eval.csv)，精確計算各指標平均值與標準差，生成內嵌 Chart.js 互動視覺化圖表報告 eval_report.html 與學系教學檢討報告 department_summary.md。適用於教育、心理、醫護與社工學科。\n---\n\n# 期末教學評估量化分析與互動視覺化技能 (Course Evaluation Survey Analyst)\n\n## 適用對象與教學場景\n- **適用學科**：教育學院、心理學系、護理及醫療科學、社會工作及跨學科課程委員會。\n- **教學目標**：協助教師在學期結束時，自動對學生教學評估問卷（Student Evaluation of Teaching, SET）進行嚴謹的描述性統計分析（平均值 Mean、標準差 SD、相關性 Correlation），並直接產出可於瀏覽器即時互動預覽的 Chart.js 視覺化圖表網頁與學系檢討報告。\n\n---\n\n## 執行步驟 (Step-by-Step Workflow)\n\n### 步驟 1：執行 Python 標準庫腳本計算統計數據（強制步驟）\n**嚴禁心算任何統計數字！** 必須先呼叫 `run_python_script` 執行純 Python 標準庫程式碼（僅使用 `csv`、`statistics`、`math`、`json`，**切勿 import pandas 或 matplotlib**，以確保雲端 Serverless 環境極速執行），完成以下計算並 `print()` 輸出：\n1. 讀取輸入目錄下的 `course_eval.csv`（包含 10 位學生樣本，欄位為：`Student_ID`, `Clarity_Score`, `Engagement_Score`, `Feedback_Helpfulness`, `Overall_Satisfaction`, `Study_Hours_Per_Week`）。\n2. 針對全部 5 個數值指標，使用 `statistics.mean()` 與 `statistics.stdev()` 精確計算：\n   - 樣本數 ($N=10$)\n   - 平均值 ($\\text{Mean}$，四捨五入至小數點後 2 位)\n   - 樣本標準差 ($\\text{SD}$，四捨五入至小數點後 2 位)\n   - 最小值 ($\\text{Min}$) 與最大值 ($\\text{Max}$)\n3. 計算 `Study_Hours_Per_Week`（每週學習時數）與 `Overall_Satisfaction`（整體滿意度）之間的皮爾森相關係數（Pearson Correlation $r$）。\n\n### 步驟 2：生成互動式視覺化圖表報告 (`eval_report.html`)\n根據步驟 1 Python 輸出的真實數據，呼叫 `write_workspace_file` 寫入 `output/eval_report.html`。\n- 必須為**單一檔案 HTML5 互動視覺化儀表板**（引入 Chart.js CDN `https://cdn.jsdelivr.net/npm/chart.js` 或使用精美內嵌 SVG 圖表）：\n  1. **頂部關鍵指標卡片 (KPI Cards)**：顯示樣本數 $N=10$、整體滿意度平均分、最高分維度（講解清晰度 Clarity Score）與待改進維度（回饋實用性 Feedback Helpfulness）及相關係數 $r$。\n  2. **左圖（互動柱狀圖 Bar Chart）**：呈現四項 5 分制教學評鑑指標的平均值（Mean）與 4.0 分學系基準線對比。\n  3. **右圖（散佈圖 Scatter Plot）**：呈現每週學習時數（X 軸）與整體滿意度（Y 軸）的正相關分佈。\n  4. **下方描述性統計表格與行動方案摘要**。\n\n### 步驟 3：撰寫學系教學檢討報告 (`department_summary.md`)\n呼叫 `write_workspace_file` 將結構嚴謹的《學系期末教學評估與質素保證檢討報告》寫入 `output/department_summary.md`（使用**繁體中文**，保留關鍵統計與教學術語**中英對照**）：\n1. **📋 執行摘要 (Executive Summary)**。\n2. **📊 描述性統計匯總表 (Descriptive Statistics Table)**：完整呈現 5 個指標的 Mean、SD、Min、Max（與步驟 1 Python 計算結果 100% 一致）。\n3. **🔍 關鍵數據洞察 (Key Quantitative Insights)**：分析優勢項目、待補強痛點（`Feedback_Helpfulness` 平均分最低）及學習時數與滿意度之強正相關。\n4. **🚀 下學期具體教學行動方案 (Action Plan for Next Semester)**：提出 3 項具體可落地的跨學科教學改進建議（如期中形成性回饋 Formative Feedback Checkpoints、AI 蘇格拉底評語支架等）。\n", "task_prompt": "請先呼叫 run_python_script (使用 csv 與 statistics 標準庫) 計算 input/course_eval.csv 各指標的 Mean、SD 與相關係數，再呼叫 write_workspace_file 生成內嵌 Chart.js 的互動圖表網頁 output/eval_report.html 及檢討報告 output/department_summary.md。"}, "4": {"badge": "Use Case 4 · 社工 / 護理 / 管理", "title": "香港情境教學個案與 100 分評核表 (case-simulator)", "desc": "先以 Python 驗算評分表 (Rubric) 各維度配分總和必等於 100 分，再自動生成香港九龍東社區跨專業兩難個案「學生派發版」student_case_brief.md 與「導師保密評核版」instructor_debrief_guide.md。", "input_filename": "lecture_notes.md", "skill_label": "case-simulator/SKILL.md", "input_content": "# GECO2104 行為經濟學導論：消費者認知偏差與日常決策 (Cognitive Biases in Consumer Decision-Making)\n\n## 1. 課程核心概念：從「理性經濟人」到「有限理性」\n傳統新古典經濟學假設人類是完全理性的「經濟人」（*Homo Economicus*），在決策時會精確計算所有選項的邊際成本與邊際效益。然而，諾貝爾經濟學獎得主 Daniel Kahneman、Amos Tversky 與 Richard Thaler 的研究指出，人類在真實世界受限於時間、注意力與資訊處理能力，展現出**有限理性（Bounded Rationality）**，並常依賴直覺捷思（Heuristics），進而產生系統性的**認知偏差（Cognitive Biases）**。\n\n---\n\n## 2. 三大經典認知偏差與香港生活實例\n\n### 2.1 錨定效應 (Anchoring Effect)\n- **理論定義**：人們在進行價值評估或數量估計時，會過度依賴最先接觸到的第一項資訊（即「錨點」 Anchor），隨後即使作出調整，調整幅度往往不足（Insufficient Adjustment）。\n- **香港生活例子（大型超市與百貨促銷標價）**：\n  - 在百佳（PARKnSHOP）、惠康（Wellcome）或一田百貨（YATA）購物時，常見價錢牌標示「原價 $128，特價 $68（買二送一）」。\n  - 即使消費者原本並不知道該款日本進口零食或紅酒的真實市場價值，「原價 $128」已成為心理錨點，令消費者覺得 $68 是「極大優惠」，進而購買超出實際需要的數量。\n  - 另一個常見例子是香港茶餐廳或餐廳午市套餐：餐牌首頁放置一道 $288 的「主廚招牌特選套餐」，能令旁邊 $118 的常規商務午餐顯得相當划算。\n\n### 2.2 損失規避 (Loss Aversion)\n- **理論定義**：根據展望理論（Prospect Theory），人們面對同等金額的「損失」時所感受到的心理痛苦，大約是獲得同等金額「收益」所帶來快樂的 **2 至 2.5 倍**。換言之，人們對「失去已擁有事物」的恐懼遠大於對「獲得新事物」的渴望。\n- **香港生活例子（塑膠購物袋徵費與八達通按金 / 咖啡店印花卡）**：\n  - **超市膠袋徵費（$1 徵費 vs. 自備環保袋減 $1）**：香港實施每個塑膠購物袋最少收費 $1 後，市民自備購物袋的比例顯著上升。行為經濟學研究顯示，將政策框架（Framing）設定為「索取膠袋需額外支付 $1（懲罰/損失）」，遠比「自備環保袋可獲 $1 折扣（獎勵/收益）」更能改變香港市民的消費習慣。\n  - **外賣平台免運費門檻**：當港人使用 Foodpanda 或 KeeTa 點餐時，為了避免支付 $15–$20 的運費（「避免損失」），往往寧願額外加購價值 $40 的小食以湊夠免運費門檻。\n\n### 2.3 現狀偏差與預設效應 (Status Quo Bias & Default Effect)\n- **理論定義**：當面對複雜、充滿不確定性或涉及長遠規劃的選擇時，人們傾向維持現狀（Status Quo），不願主動做出改變，因此極容易直接接受系統預先設定的選項（Default Option）。\n- **香港生活例子（強積金 MPF「預設投資策略」DIS 與訂閱服務自動續期）**：\n  - **香港強積金（MPF）預設投資策略（Default Investment Strategy, DIS，俗稱「懶人基金」）**：許多香港打工仔面對數十隻強積金基金成分、管理費率與環球股市波動時，會出現「選擇過載」（Choice Overload）及拖延行為（Procrastination），長年將供款留在回報極低的保守基金或從不檢視組合。積金局引入 DIS 作為預設選項後，凡沒有主動給予投資指示的計劃成員，其供款會自動按年齡自動降低風險（隨年齡增長逐步減持環球股票、增持債券），成功利用「預設效應」改善退休保障配置。\n  - **串流平台與健身會籍試用**：香港常見的「首月 $0 免費試用，其後每月自動扣款 $98」條款，正是利用消費者懶於取消的現狀偏差來提高留存率。\n\n---\n\n## 3. 課堂討論與延伸思考：助推理論 (Nudge Theory)\n公共政策制定者與企業可透過設計**選擇架構（Choice Architecture）**，在不禁止任何選項、也不顯著改變經濟誘因的前提下，溫和地「助推」（Nudge）市民做出更有利於自身健康、財務或社會福祉的決定。同時，我們亦需警惕商界濫用認知偏差設計「暗黑模式」（Dark Patterns，又稱「淤泥」Sludge）誘導非理性消費。\n", "agents_md": "# 香港大專院校跨學科 AI 教學助教全域規範 (Global Pedagogical Agent Rules)\n\n## 1. 角色定位 (Role Definition)\n你是專為**香港大專院校跨學科教授、講師及教學人員**設計的「AI 學術與教學助教 (Academic & Pedagogical AI Teaching Assistant)」。你的服務對象涵蓋人文社科、商管、教育心理、醫護及社工等不同學科背景的教師，協助他們高效率、高信度地完成備課、形成性評量（Formative Assessment）、學生作業回饋、課程檢討與情境案例設計。\n\n---\n\n## 2. 語言與術語規範 (Language & Terminology Standards)\n- **主要語言**：所有教學分析、學生評語、檢討報告與導師指引，一律使用**繁體中文（書面語，貼合香港高等教育語境）**撰寫。\n- **學術專有名詞中英對照**：首次出現或關鍵的學術概念、統計指標、評估準則與教學法術語，必須保留**中英對照**（例如：錨定效應 Anchoring Effect、形成性評量 Formative Assessment、標準差 Standard Deviation、蘇格拉底式提問 Socratic Questioning）。\n- **在地化語境**：舉例或設計情境時，優先採用香港大專學生及市民熟悉的制度與生活場景（如：強積金 MPF、八達通、公屋/居屋社區、醫管局急症室分流、香港大專通識課程等）。\n\n---\n\n## 3. 工具實證守則 (Tool-Verified Evidence Mandate)\n> **核心鐵律：零幻覺、先驗算、後下筆 (Calculate First, Write Second)**\n\n凡涉及以下任何量化或格式檢驗任務，**嚴禁憑語言模型直覺「心算」或猜測**，必須先呼叫 `run_python_script` 工具執行 Python 程式碼取得精確輸出後，方可將結果寫入報告或回饋中：\n1. **字數與句子統計**：計算英文/中文短文字數（Word Count）、句子數（Sentence Count）及平均句長。\n2. **APA 引用格式提取與檢核**：使用正規表達式（Regex）提取文內所有 `(Author, YYYY)` 或 `(Author & Author, YYYY)` 格式之 APA 第 7 版引用。\n3. **評分表（Rubric）配分與加總驗算**：核算各評分維度權重總和是否嚴格等於 100%，以及計算學生的加權總分與等第（Grade）。\n4. **問卷與量化數據統計**：讀取 CSV 檔案計算平均值（Mean）、標準差（SD）、相關係數（Correlation）及繪製統計圖表。\n\n---\n\n## 4. 教學法護欄 (Pedagogical Guardrails)\n- **蘇格拉底式鷹架引導 (Socratic Scaffolding)**：\n  - 批改學生作業或設計案例討論時，你的目標是促進學生的批判性思考（Critical Thinking）與自主修正能力。\n  - 針對學生的論點漏洞或寫作弱點，必須提供**具體改進提示（Actionable Hints）**與**引導式提問（Guiding Questions）**，引領學生思考如何補強論據。\n- **嚴禁代寫守則 (No Ghostwriting Policy)**：\n  - **絕不直接代寫整篇學生作業或直接給出完整標準範文**。你可以提供最多 1–2 句的「句型改寫示範（Sentence-level Modeling）」，但必須保留空間讓學生自行重構段落。\n- **正向且具建設性的語氣 (Constructive Tone)**：\n  - 採用「三明治回饋法（Sandwich Feedback Method）」：先肯定作品的具體優點，再指出需改進之處並附上思考提示，最後給予鼓勵與下一步行動建議。\n\n---\n\n## 5. 檔案輸出守則 (File Output & Sandbox Rules)\n- **讀取路徑**：所有原始教學素材、學生作業與問卷數據均存放於 `workspace/input/` 目錄下，請使用 `read_workspace_file` 或在 `run_python_script` 中讀取。\n- **寫入路徑**：所有生成的互動教材（`.html`）、評語報告（`.md`）、成績表（`.csv`）或數據視覺化圖表（`.png`），**必須且只能寫入 `workspace/output/` 目錄下**，絕不可覆寫 `workspace/input/` 內的原始檔案。\n", "skill_md": "---\nname: case-simulator\ndescription: 先以 Python 驗算評分表 (Rubric) 各維度配分總和必等於 100 分，再自動生成香港本地化跨專業情境案例「學生派發版」workspace/output/student_case_brief.md 與「導師保密評核及引導提問版」workspace/output/instructor_debrief_guide.md。適用於社工、護理與管理學科。\n---\n\n# 香港情境個案模擬與雙軌教材生成器 (Localized Case Simulator & Dual-Track Brief Builder)\n\n## 適用對象與教學場景\n- **適用學科**：社會工作（Social Work）、護理及醫療科學（Nursing & Allied Health）、公共行政與企業管理（Public & Business Management）。\n- **教學目標**：解決實務學科教授撰寫「問題導向學習（Problem-Based Learning, PBL）」及「情境模擬演練（Role-Play / Case Simulation）」教材耗時費力的痛點。一次自動生成兩份嚴格分離的教材：**給學生的公開個案簡報**（不含答案與評分細節）與**給導師的保密帶領指南**（含經 Python 驗算 100% 準確的評分表與蘇格拉底式追問劇本）。\n\n---\n\n## 執行步驟 (Step-by-Step Workflow)\n\n### 步驟 1：讀取課程背景並用 Python 驗算評分表配分（強制步驟）\n1. 可先呼叫 `read_workspace_file` 參考 `workspace/input/lecture_notes.md` 中的決策心理學或行為概念（如：現狀偏差 Status Quo Bias、損失規避 Loss Aversion、危機溝通與倫理兩難），將其融入跨專業實務個案中。\n2. **強制 Python 配分驗算**：在撰寫導師評分表（Assessment Rubric）前，必須先呼叫 `run_python_script` 定義各評核維度及其配分權重，並用 `assert sum(weights.values()) == 100` 嚴格驗算**所有評分維度配分總和必等於 100 分**（同時驗證各等第如 Excellent / Proficient / Developing / Unsatisfactory 的分數區間無重疊或遺漏）。\n\n### 步驟 2：設計香港在地化高擬真兩難個案 (Hong Kong Localized Dilemma Case)\n設計一個背景設於**香港九龍東（如觀塘或深水埗）公共屋邨社區綜合服務中心 / 社區健康中心**的跨專業實務個案：\n- **個案主角與情境**：例如 76 歲獨居長者陳伯（患有初期認知障礙徵兆與慢性高血壓，近期因現狀偏差拒絕接受社區日間護理轉介，同時懷疑墮入電話消費陷阱並抗拒動用儲蓄就醫，家屬遠在海外且意見分歧）。\n- **核心挑戰**：融合專業倫理兩難（案主自決 Client Self-Determination vs. 安全保護 Duty of Care）、行為心理阻力（Status Quo Bias & Loss Aversion）及跨專業資源協調（社工、社區護士、中心督導）。\n\n### 步驟 3：輸出「學生派發版」個案簡報 (`workspace/output/student_case_brief.md`)\n呼叫 `write_workspace_file` 建立 `workspace/output/student_case_brief.md`（使用**繁體中文**，關鍵專業術語保留**中英對照**）：\n- **注意保密界線**：此檔案供課堂直接派發給學生小組，**絕對不可包含標準答案、隱藏線索揭秘或詳細扣分細則**。\n- **必備內容**：\n  1. **個案編號與演練背景 (Case Overview & Setting)**：香港社區真實情境設定。\n  2. **人物角色設定 (Stakeholder Profiles)**：陳伯、海外女兒、前線社工/社區護士、服務中心主任。\n  3. **事件時間軸與現況困境 (Timeline & Presenting Dilemma)**。\n  4. **小組演練任務 (Group Simulation Tasks — 20 分鐘課堂討論)**：要求學生在有限資訊下制定初步介入方案（Initial Intervention Plan）與溝通策略。\n  5. **思考提示 (Scaffolding Hints)**：提供 3 個不劇透答案的思考方向。\n\n### 步驟 4：輸出「導師保密評核及引導提問版」(`workspace/output/instructor_debrief_guide.md`)\n呼叫 `write_workspace_file` 建立 `workspace/output/instructor_debrief_guide.md`（標註「🔒 導師專用保密文件 Instructor Eyes Only」）：\n- **必備內容**：\n  1. **教學目標與理論連結 (Learning Objectives & Theoretical Mapping)**：如何結合專業倫理與行為經濟學（現狀偏差、損失規避、助推架構）解讀案主抗拒行為。\n  2. **隱藏個案資訊與轉折點 (Hidden Case Triggers / Injects)**：當學生討論陷入僵局或過於表面時，導師可在第 10 分鐘拋出的突發情境變數。\n  3. **蘇格拉底式小組帶領與追問劇本 (Socratic Debriefing Questions)**：提供三階段提問（事實釐清 → 倫理與心理機制剖析 → 方案可行性壓力測試），並列出「常見學生盲點 vs. 導師引導話術」。\n  4. **經 Python 驗算之 100 分制結構化評分表 (Verified 100-Point Assessment Rubric)**：以 Markdown 表格清楚列出 4–5 個評核維度（總和嚴格等於 100 分，與步驟 1 Python 驗算結果完全一致）及各表現等第的具體評分準則。\n", "task_prompt": "請參考 input/lecture_notes.md 的行為決策概念，先呼叫 run_python_script 嚴格驗算 Rubric 各維度配分總和等於 100 分，再呼叫 write_workspace_file 生成 output/student_case_brief.md 與 output/instructor_debrief_guide.md。"}};
+    const STORAGE_PREFIX = 'hk_faculty_workshop_v1_';
+    let currentUseCase = localStorage.getItem(STORAGE_PREFIX + 'active_uc') || '1';
+    let currentOutputFiles = {};
+    let activeOutputFilename = '';
+
+    function getStorageKey(uc) {
+      return STORAGE_PREFIX + 'uc_' + uc;
+    }
+
+    function initApp() {
+      const savedProvider = localStorage.getItem(STORAGE_PREFIX + 'provider') || 'openrouter';
+      const savedKey = localStorage.getItem(STORAGE_PREFIX + 'custom_api_key') || '';
+      document.getElementById('providerSelect').value = savedProvider;
+      document.getElementById('customApiKey').value = savedKey;
+      handleProviderChange();
+      switchUseCase(currentUseCase);
+    }
+
+    function handleProviderChange() {
+      const provider = document.getElementById('providerSelect').value;
+      localStorage.setItem(STORAGE_PREFIX + 'provider', provider);
+      const wrapper = document.getElementById('customKeyWrapper');
+      if (provider === 'poe') {
+        wrapper.classList.remove('hidden');
+      } else {
+        wrapper.classList.add('hidden');
+      }
+    }
+
+    function saveCustomKey() {
+      const val = document.getElementById('customApiKey').value;
+      localStorage.setItem(STORAGE_PREFIX + 'custom_api_key', val);
+    }
+
+    function switchUseCase(uc) {
+      currentUseCase = String(uc);
+      localStorage.setItem(STORAGE_PREFIX + 'active_uc', currentUseCase);
+
+      ['1', '2', '3', '4'].forEach(id => {
+        const btn = document.getElementById('uc-btn-' + id);
+        if (id === currentUseCase) {
+          btn.className = 'uc-tab px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-bold transition flex items-center gap-1.5 bg-indigo-500 text-white shadow-sm';
+        } else {
+          btn.className = 'uc-tab px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition flex items-center gap-1.5 bg-indigo-900/60 text-indigo-200 hover:bg-indigo-800/80';
+        }
+      });
+
+      const tpl = DEFAULT_TEMPLATES[currentUseCase];
+      const savedRaw = localStorage.getItem(getStorageKey(currentUseCase));
+      let state = tpl;
+      if (savedRaw) {
+        try {
+          state = { ...tpl, ...JSON.parse(savedRaw) };
+        } catch (e) {
+          state = tpl;
+        }
+      }
+
+      document.getElementById('ucBadge').textContent = tpl.badge;
+      document.getElementById('ucTitle').textContent = tpl.title;
+      document.getElementById('ucDesc').textContent = tpl.desc;
+      document.getElementById('inputFileLabel').textContent = tpl.input_filename;
+      document.getElementById('skillFileLabel').textContent = tpl.skill_label;
+
+      document.getElementById('inputContentEditor').value = state.input_content;
+      document.getElementById('agentsMdEditor').value = state.agents_md;
+      document.getElementById('skillMdEditor').value = state.skill_md;
+      document.getElementById('taskPromptEditor').value = state.task_prompt;
+    }
+
+    function saveUserEdits() {
+      const state = {
+        input_content: document.getElementById('inputContentEditor').value,
+        agents_md: document.getElementById('agentsMdEditor').value,
+        skill_md: document.getElementById('skillMdEditor').value,
+        task_prompt: document.getElementById('taskPromptEditor').value
+      };
+      localStorage.setItem(getStorageKey(currentUseCase), JSON.stringify(state));
+      const statusEl = document.getElementById('saveStatusText');
+      statusEl.textContent = '已即時儲存您的修改 (' + new Date().toLocaleTimeString() + ')';
+    }
+
+    function resetCurrentUseCase() {
+      localStorage.removeItem(getStorageKey(currentUseCase));
+      switchUseCase(currentUseCase);
+      const statusEl = document.getElementById('saveStatusText');
+      statusEl.textContent = '已還原為預設教材與規範範本';
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function renderToolLogs(logs) {
+      const container = document.getElementById('toolLogsContainer');
+      if (!logs || logs.length === 0) {
+        container.innerHTML = '<div class="text-slate-500 text-center py-4">本次執行未呼叫外部工具。</div>';
+        return;
+      }
+      container.innerHTML = logs.map((item, idx) => {
+        const badgeColor =
+          item.tool === 'run_python_script'
+            ? 'bg-amber-100 text-amber-800 border-amber-300'
+            : item.tool === 'write_workspace_file'
+            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+            : 'bg-blue-100 text-blue-800 border-blue-300';
+
+        const codeBlock = item.args && item.args.code
+          ? '<div class="mt-1.5"><div class="text-[10px] font-bold text-slate-500 mb-0.5">執行的 Python 標準庫實證程式碼：</div><pre class="bg-slate-900 text-emerald-300 p-2 rounded text-[11px] overflow-x-auto custom-scroll">' + escapeHtml(item.args.code) + '</pre></div>'
+          : '';
+
+        return `
+          <details class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm" ${idx === logs.length - 1 || item.tool === 'run_python_script' ? 'open' : ''}>
+            <summary class="cursor-pointer font-semibold text-slate-800 flex items-center justify-between gap-2">
+              <span class="flex items-center gap-1.5">
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${badgeColor}">${escapeHtml(item.tool)}</span>
+                <span>${escapeHtml(item.summary || '')}</span>
+              </span>
+              <span class="text-[10px] text-slate-400">展開詳情</span>
+            </summary>
+            <div class="mt-2 pt-2 border-t border-slate-100 text-[11px] space-y-1.5">
+              ${codeBlock}
+              <div>
+                <div class="text-[10px] font-bold text-slate-500 mb-0.5">沙盒工具回傳輸出 (Output)：</div>
+                <pre class="bg-slate-100 text-slate-800 p-2 rounded text-[11px] max-h-40 overflow-y-auto custom-scroll whitespace-pre-wrap">${escapeHtml(item.output || '')}</pre>
+              </div>
+            </div>
+          </details>
+        `;
+      }).join('');
+    }
+
+    function renderOutputFiles(filesObj) {
+      currentOutputFiles = filesObj || {};
+      const filenames = Object.keys(currentOutputFiles);
+      const tabsEl = document.getElementById('outputFileTabs');
+      const dlBar = document.getElementById('downloadButtonsBar');
+
+      if (filenames.length === 0) {
+        tabsEl.innerHTML = '<span class="text-xs font-bold text-slate-700">📂 產出檔案：</span><span class="text-xs text-slate-400">無產出檔案</span>';
+        dlBar.innerHTML = '';
+        return;
+      }
+
+      const htmlFile = filenames.find(f => f.toLowerCase().endsWith('.html'));
+      activeOutputFilename = htmlFile || filenames[0];
+
+      tabsEl.innerHTML = '<span class="text-xs font-bold text-slate-700 mr-1">📂 切換預覽：</span>' +
+        filenames.map(fname => {
+          const isHtml = fname.toLowerCase().endsWith('.html');
+          const icon = isHtml ? '🌐' : (fname.toLowerCase().endsWith('.csv') ? '📊' : '📝');
+          return `<button onclick="selectPreviewFile('${fname}')" id="file-tab-${fname}" class="px-2.5 py-1 rounded-md text-xs font-mono transition flex items-center gap-1 border">${icon} ${fname}</button>`;
+        }).join('');
+
+      dlBar.innerHTML = filenames.map(fname => {
+        return `<button onclick="downloadOutputFile('${fname}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold px-2.5 py-1 rounded-md shadow-sm transition flex items-center gap-1">⬇️ 下載 ${fname}</button>`;
+      }).join('');
+
+      selectPreviewFile(activeOutputFilename);
+    }
+
+    function selectPreviewFile(filename) {
+      activeOutputFilename = filename;
+      const content = currentOutputFiles[filename] || '';
+
+      Object.keys(currentOutputFiles).forEach(fname => {
+        const btn = document.getElementById('file-tab-' + fname);
+        if (!btn) return;
+        if (fname === filename) {
+          btn.className = 'px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-indigo-600 text-white border-indigo-600 shadow-sm flex items-center gap-1';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-md text-xs font-mono bg-white text-slate-700 border-slate-300 hover:bg-slate-100 flex items-center gap-1';
+        }
+      });
+
+      const emptyHint = document.getElementById('emptyPreviewHint');
+      const iframeEl = document.getElementById('htmlPreviewFrame');
+      const textPane = document.getElementById('textPreviewPane');
+
+      emptyHint.classList.add('hidden');
+      if (filename.toLowerCase().endsWith('.html')) {
+        textPane.classList.add('hidden');
+        iframeEl.classList.remove('hidden');
+        iframeEl.srcdoc = content;
+      } else {
+        iframeEl.classList.add('hidden');
+        textPane.classList.remove('hidden');
+        textPane.textContent = content;
+      }
+    }
+
+    function downloadOutputFile(filename) {
+      const content = currentOutputFiles[filename] || '';
+      const ext = filename.split('.').pop().toLowerCase();
+      const mime = ext === 'html' ? 'text/html;charset=utf-8' : (ext === 'csv' ? 'text/csv;charset=utf-8' : 'text/markdown;charset=utf-8');
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    async function runAgentHarness() {
+      const runBtn = document.getElementById('runAgentBtn');
+      const runBtnIcon = document.getElementById('runBtnIcon');
+      const runBtnText = document.getElementById('runBtnText');
+      const loadingBanner = document.getElementById('loadingBanner');
+      const logsContainer = document.getElementById('toolLogsContainer');
+      const finalReplyBox = document.getElementById('finalReplyBox');
+      const finalReplyContent = document.getElementById('finalReplyContent');
+
+      const tpl = DEFAULT_TEMPLATES[currentUseCase];
+      const payload = {
+        use_case: currentUseCase,
+        provider: document.getElementById('providerSelect').value,
+        custom_api_key: document.getElementById('customApiKey').value.trim(),
+        agents_md: document.getElementById('agentsMdEditor').value,
+        skill_md: document.getElementById('skillMdEditor').value,
+        input_filename: tpl.input_filename,
+        input_content: document.getElementById('inputContentEditor').value,
+        task_prompt: document.getElementById('taskPromptEditor').value
+      };
+
+      runBtn.disabled = true;
+      runBtn.classList.add('opacity-75', 'cursor-not-allowed');
+      runBtnIcon.textContent = '⏳';
+      runBtnText.textContent = 'Agent 執行中...';
+      loadingBanner.classList.remove('hidden');
+      logsContainer.innerHTML = '<div class="text-indigo-600 text-center py-4 font-medium">正在建立 /tmp/&lt;uuid&gt; 獨立沙盒並啟動 Gemini Tool Calling Loop...</div>';
+
+      try {
+        const response = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok || data.status === 'error') {
+          throw new Error(data.error || data.final_reply || ('HTTP ' + response.status));
+        }
+
+        document.getElementById('sandboxBadge').textContent =
+          (data.sandbox_id || '/tmp/sandbox') + ' · ' + (data.model_used || '');
+
+        renderToolLogs(data.logs || []);
+        renderOutputFiles(data.output_files || {});
+
+        if (data.final_reply) {
+          finalReplyBox.classList.remove('hidden');
+          finalReplyContent.textContent = data.final_reply;
+        }
+      } catch (err) {
+        logsContainer.innerHTML = `<div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-xs"><strong>❌ 執行失敗：</strong> ${escapeHtml(err.message)}</div>`;
+      } finally {
+        loadingBanner.classList.add('hidden');
+        runBtn.disabled = false;
+        runBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+        runBtnIcon.textContent = '🚀';
+        runBtnText.textContent = '啟動 Gemini Agent Harness';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
